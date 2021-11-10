@@ -1,0 +1,279 @@
+@page "/my-portfolio"
+
+@using Models
+@using Data
+@using System.Security.Claims
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject PortfolioService portfolioService
+@inject CryptocoinService cryptocoinService
+@inject ExchangeService exchangeService
+
+<h3>Portfolios</h3>
+<AuthorizeView>
+  <Authorized>
+    <table class="table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Cryptocoin</th>
+          <th>Amount</th>
+          <th>Exchange</th>
+          <th>Active</th>
+          <th>Created At</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        @{
+          int i = 0;
+        }
+        @foreach (var item in portfolios)
+        {
+          <tr>
+            <td>@{
+                i++;
+              }@i</td>
+            <td>@item.Cryptocoin.Symbol</td>
+            <td>@item.Amount</td>
+            <td>@item.Exchange.Symbol</td>
+            <td>
+              <div class="form-check form-switch">
+                @if (item.Active == false)
+                {
+                  <input class="form-check-input" type="checkbox" id="switchActive" disabled="" />
+                }
+                else
+                {
+                  <input class="form-check-input" type="checkbox" id="switchActive" disabled="" checked="" />
+                }
+              </div>
+            </td>
+            <td>@item.CreatedAt</td>
+            <td><button class="btn btn-primary" @onclick="(() => Edit(item))">
+                Edit
+              </button>
+              <button class="btn btn-danger" @onclick="(() => Delete(item))">
+                Delete
+              </button>
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+    <button class="btn btn-success" @onclick="Add">Add</button>
+
+    @if (showPopup)
+    {
+      <!-- This is the popup to create or edit -->
+      <div class="modal" tabindex="-1" style="display:block" role="dialog">
+        <div class="modal-dialog">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h3 class="modal-title">@(mode == 2 ? "Edit" : "Add") Portfolio</h3>
+              <button type="button" class="close" @onclick="ClosePopup">
+                <span aria-hidden="true">X</span>
+              </button>
+            </div>
+            <div class="modal-body">
+              <div class="form-group">
+                <label for="cryptocoin" class="form-label mt-4">Select coin</label>
+                <select class="form-control" id="cryptocoin" @bind="obj.CryptocoinId">
+                  @foreach (var option in cryptocoins)
+                  {
+                    <option value="@option.Id">
+                      @option.Symbol
+                    </option>
+                  }
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="amount" class="form-label mt-4">Amount</label>
+                <input class="form-control" type="text" placeholder="Amount" id="amount" @bind="obj.Amount" />
+              </div>
+              <div class="form-group">
+                <label for="exchange" class="form-label mt-4">Select exchange</label>
+                <select class="form-control" @bind="obj.ExchangeId">
+                  @foreach (var option in exchanges)
+                  {
+                    <option value="@option.Id">
+                      @option.Symbol
+                    </option>
+                  }
+                </select>
+              </div>
+              <br />
+              <div class="form-check form-switch">
+                @if (active == false)
+                {
+                  <input class="form-check-input" type="checkbox" id="active" @onchange="ActiveChanged" />
+                }
+                else
+                {
+                  <input class="form-check-input" type="checkbox" id="active" @onchange="ActiveChanged" checked="" />
+                }
+                <label class="form-check-label" for="active">Active</label>
+              </div>
+              <br /><br />
+              <button class="btn btn-primary" @onclick="Save">
+                Save
+              </button>
+              <br /><br />
+              <span style="color:red">@strError</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    }
+
+    @if (showConfirm)
+    {
+      <!-- This is the popup to confirm delete -->
+      <div class="modal" tabindex="-1" style="display:block" user="dialog">
+        <div class="modal-dialog">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h3 class="modal-title">Confirm Delete</h3>
+              <button type="button" class="close" @onclick="ClosePopup">
+                <span aria-hidden="true">X</span>
+              </button>
+            </div>
+            <div class="modal-body">
+              <p>Are you going to delete this?</p>
+              <br /><br />
+              <button class="btn btn-primary" @onclick="ConfirmDelete">
+                Yes
+              </button>
+              <button class="btn btn-primary" @onclick="ClosePopup">
+                No
+              </button>
+              <br /><br />
+              <span style="color:red">@strError</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    }
+
+  </Authorized>
+  <NotAuthorized>
+    <p>You're not loggged in.</p>
+  </NotAuthorized>
+</AuthorizeView>
+
+@code {
+  [CascadingParameter]
+  private Task<AuthenticationState> authenticationStateTask { get; set; }
+  System.Security.Claims.ClaimsPrincipal CurrentUser;
+  string CurrentUserId;
+
+  // Property used to add or edit the currently selected object
+  Models.Portfolio obj = new Models.Portfolio();
+  // Collection to display the existing items
+  List<Models.Portfolio> portfolios = new List<Models.Portfolio>();
+  List<CryptocoinOption> cryptocoins = new List<CryptocoinOption>();
+  List<ExchangeOption> exchanges = new List<ExchangeOption>();
+  // To hold any possible errors
+  string strError = "";
+  // To enable showing the Popup
+  bool showPopup = false;
+  bool showConfirm = false;
+  int mode = 0;
+  bool active = true;
+
+  protected override async Task OnInitializedAsync()
+  {
+    // get current user
+    CurrentUser = (await authenticationStateTask).User;
+    CurrentUserId = CurrentUser.FindFirstValue(ClaimTypes.NameIdentifier);
+
+    await Task.Run(GetPortfolios);
+  }
+
+  async Task GetPortfolios()
+  {
+    portfolios = await portfolioService.GetAllPortfoliosByUserAsync(CurrentUserId);
+    cryptocoins = await cryptocoinService.GetAllCryptocoinSymbolsAsync();
+    exchanges = await exchangeService.GetAllExchangeSymbolsAsync();
+  }
+
+  void Add()
+  {
+    obj = new Models.Portfolio();
+    mode = 1;
+    active = true;
+    showPopup = true;
+  }
+
+  void Edit(Models.Portfolio item)
+  {
+    obj = item;
+    mode = 2;
+    active = obj.Active;
+    showPopup = true;
+  }
+
+  async Task Save()
+  {
+    try
+    {
+      obj.Active = active;
+      // Is this an existing user?
+      if (mode == 2)
+      {
+        Models.Portfolio portfolio = await portfolioService.GetPortfolioAsync(obj.Id);
+        portfolio.ExchangeId = obj.ExchangeId;
+        portfolio.CryptocoinId = obj.CryptocoinId;
+        portfolio.Amount = obj.Amount;
+        var ret = await portfolioService.UpdatePortfolioAsync(portfolio);
+        if (!ret)
+        {
+          strError = "Add error";
+          return;
+        }
+      }
+      else
+      {
+        obj.UserId = CurrentUserId;
+        var ret = await portfolioService.InsertPortfolioAsync(obj);
+        if (!ret)
+        {
+          strError = "Add error";
+          return;
+        }
+      }
+      ClosePopup();
+      await Task.Run(GetPortfolios);
+    }
+    catch (Exception ex)
+    {
+      strError = ex.GetBaseException().Message;
+    }
+  }
+
+  void Delete(Models.Portfolio item)
+  {
+    obj = item;
+    showPopup = false;
+    showConfirm = true;
+  }
+
+  async Task ConfirmDelete()
+  {
+    var ret = await portfolioService.DeletePortfolioAsync(obj);
+    ClosePopup();
+    await Task.Run(GetPortfolios);
+  }
+
+  void ClosePopup()
+  {
+    strError = "";
+    mode = 0;
+    showPopup = false;
+    showConfirm = false;
+  }
+
+  void ActiveChanged()
+  {
+    active = !active;
+  }
+}

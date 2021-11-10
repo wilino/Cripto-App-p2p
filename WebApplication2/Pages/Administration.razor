@@ -1,0 +1,86 @@
+@page "/administration"
+
+<h1>Administration</h1>
+<AuthorizeView>
+  <Authorized>
+    @if (!@context.User.IsInRole(ADMINISTRATION_ROLE))
+    {
+      <p>You're not signed in as a user in @ADMINISTRATION_ROLE.</p>
+    }
+    else
+    {
+      <ul class="nav nav-tabs">
+        <li class="nav-item">
+          <a class="nav-link @(actived == 1 ? "active" : "")" data-bs-toggle="tab"
+          @onclick="(() => onTabClicked(1))">Roles</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link @(actived == 2 ? "active" : "")" data-bs-toggle="tab"
+          @onclick="(() => onTabClicked(2))">Users</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link @(actived == 3 ? "active" : "")" data-bs-toggle="tab"
+          @onclick="(() => onTabClicked(3))">Cryptocoins</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link @(actived == 4 ? "active" : "")" data-bs-toggle="tab"
+          @onclick="(() => onTabClicked(4))">Exchanges</a>
+        </li>
+      </ul>
+      <div id="myTabContent" class="tab-content">
+        <div class="tab-pane fade @(actived == 1 ? "active show" : "")" id="roles">
+          @if (actived == 1)
+          {
+            <Roles />
+          }
+          else
+          {
+            <div></div>
+          }
+        </div>
+        <div class="tab-pane fade @(actived == 2 ? "active show" : "")" id="users">@if (actived == 2)
+          {
+            <Users />
+          }
+          else
+          {
+            <div></div>
+          }
+        </div>
+        <div class="tab-pane fade @(actived == 3 ? "active show" : "")" id="cryptocoins">
+          @if (actived == 3)
+          {
+            <Cryptocoins />
+          }
+          else
+          {
+            <div></div>
+          }
+        </div>
+        <div class="tab-pane fade @(actived == 4 ? "active show" : "")" id="exchanges">
+          @if (actived == 4)
+          {
+            <Exchanges />
+          }
+          else
+          {
+            <div></div>
+          }
+        </div>
+      </div>
+    }
+  </Authorized>
+  <NotAuthorized>
+    <p>You're not loggged in.</p>
+  </NotAuthorized>
+</AuthorizeView>
+
+@code {
+  string ADMINISTRATION_ROLE = "Administrators";
+  int actived = 1;
+
+  void onTabClicked(int tab)
+  {
+    actived = tab;
+  }
+}
