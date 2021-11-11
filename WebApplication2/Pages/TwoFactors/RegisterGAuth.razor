@@ -1,0 +1,43 @@
+﻿@using Google.Authenticator;
+@using Logic.Login;
+
+@page "/GoogleAuthenticatorRegister"
+
+@if (!enabledGA)
+{
+<h1>Step 1: Register your device</h1>
+<h2>Activate Google Authenticator</h2>
+<h3>Use your cell phone camera</h3>
+<img src="@URLImagenQR" alt="QR" />
+
+<h3>Or Use this code</h3>
+<h3><em>@CodigoManual</em></h3>
+
+<h1>Step 2: Enter the key indicated by Google Authenticator at this time</h1>
+
+
+<span>Key:</span>
+<input @bind-value=codigoApp />
+<button @onclick=comprobarCodigo> Listo </button>
+}else{
+    <h1>Google Authenticator has already been activated</h1>
+}
+
+
+@code {
+    public string URLImagenQR { get; set; }
+    public string CodigoManual { get; set; }
+    public string codigoApp { get; set; }
+    public bool enabledGA { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        SetupCode codigos = RegisterGoogleAuth.ObtenerCodigoRegistroGoogleAuthenticator();
+        URLImagenQR = codigos.QrCodeSetupImageUrl;
+        CodigoManual = codigos.ManualEntryKey;
+    }
+    public void comprobarCodigo()
+    {
+        enabledGA=RegisterGoogleAuth.EnableGoogleAuthenticator(codigoApp);
+    }
+}
